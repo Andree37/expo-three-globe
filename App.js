@@ -7,9 +7,10 @@ import {
   PerspectiveCamera,
   Scene, SphereGeometry,
   AdditiveBlending,
-  BackSide,
+  BackSide, Group, BufferGeometry, PointsMaterial, Points, Float32BufferAttribute,
 } from "three";
-import React, {useEffect, useState} from "react";
+import React from "react";
+import gsap from "gsap";
 
 
 export default function App() {
@@ -20,7 +21,7 @@ export default function App() {
   const windowWidth = Dimensions.get('window').width;
   const windowHeight = Dimensions.get('window').height;
 
-  const [finger, setFinger] = useState({x:undefined, y: undefined});
+  const finger = React.useRef({x:0, y: 0});
 
   // Pan
   const panResponder = React.useRef(
@@ -33,7 +34,7 @@ export default function App() {
       onMoveShouldSetPanResponderCapture: (evt, gestureState) =>
         true,
       onPanResponderMove: (evt, gestureState) => {
-        setFinger({x: (gestureState.moveX / windowWidth) * 2 - 1, y:-(gestureState.moveY / windowHeight) * 2 + 1});
+        finger.current = {x: (gestureState.moveX / windowWidth) * 2 - 1, y:-(gestureState.moveY / windowHeight) * 2 + 1};
       },
       onPanResponderTerminationRequest: (evt, gestureState) =>
         true,
@@ -44,11 +45,6 @@ export default function App() {
       }
     })
   ).current;
-
-  useEffect(() => {
-    console.log(finger)
-  }, [finger])
-
 
   return <GLView
     {...panResponder.panHandlers}
@@ -124,9 +120,12 @@ export default function App() {
         side: BackSide
       });
       atmosphere.scale.set(1.1, 1.1, 1.1)
-
-      scene.add(sphere);
       scene.add(atmosphere);
+
+      // group
+      const group = new Group();
+      group.add(sphere);
+      scene.add(group);
 
       // Set camera position and look to sphere
       camera.position.set(
@@ -137,11 +136,34 @@ export default function App() {
 
       camera.lookAt(sphere.position);
 
+      //Stars
+      const starGeometry = new BufferGeometry();
+      const starMaterial = new PointsMaterial({
+        color: 0xffffff
+      });
+
+      const starVertices = [];
+      for (let i = 0; i < 10000; i++) {
+        const x = (Math.random() - 0.5) * 2000;
+        const y = (Math.random() - 0.5) * 2000;
+        const z = -Math.random() * 2000;
+        starVertices.push(x,y,z);
+      }
+      starGeometry.setAttribute('position', new Float32BufferAttribute(starVertices, 3));
+
+      const stars = new Points(starGeometry, starMaterial);
+      scene.add(stars);
+
       // Render function
       const render = () => {
         requestAnimationFrame(render);
         renderer.render(scene, camera);
-        sphere.rotation.y += 0.001;
+        sphere.rotation.y += 0.002;
+        gsap.to(group.rotation, {
+          x: -finger.current.y * 0.3,
+          y: finger.current.x * 0.5,
+          duration: 2
+        })
         gl.endFrameEXP();
       };
       render();
